@@ -2,51 +2,28 @@
 package handler
 
 import (
-	"fmt"
-	"mime/multipart"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/ky0ryu/video-upload-service/internal/storage"
+	"github.com/ky0ryu/video-upload-service/internal/domain"
+	"github.com/ky0ryu/video-upload-service/internal/service"
 )
 
-var allowedVidExt = map[string]bool{
-	".mp4": true,
-	".mov": true,
-	".mkv": true,
-	".avi": true,
-}
-
 type VideoHandler struct {
-	store       storage.Storage
-	sizeLimitMB int64
+	service *service.VideoService
 }
 
-func NewVideoHandler(store storage.Storage, sizeLimitMB int64) *VideoHandler {
-	return &VideoHandler{store: store, sizeLimitMB: sizeLimitMB}
+func NewVideoHandler(s *service.VideoService) *VideoHandler {
+	return &VideoHandler{service: s}
 }
 
-func (v *VideoHandler) Upload(c *gin.Context) {
-	// limit the total request body size to prevent disk space overloading
-	maxBytes := (v.sizeLimitMB + 1) * 1024 * 1024
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+func (v *VideoHandler) Upload(ctx *gin.Context) {
 
 	// multipart file parse
-	fileHeader, err := c.FormFile("file")
+	fileHeader, err := ctx.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "file required",
-		})
-		return
-	}
-
-	// validate
-	if err := validate(fileHeader, v.sizeLimitMB); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"error": err.Error(),
 		})
 		return
 	}
@@ -54,7 +31,7 @@ func (v *VideoHandler) Upload(c *gin.Context) {
 	// open
 	file, err := fileHeader.Open()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "unable to open file",
 		})
 		return
@@ -62,33 +39,37 @@ func (v *VideoHandler) Upload(c *gin.Context) {
 	defer file.Close()
 
 	// save
-	jobID := uuid.NewString()
-	ext := filepath.Ext(fileHeader.Filename)
-	filename := jobID + ext
+	title := ctx.PostForm("title")
+	desc := ctx.PostForm("description")
+	size := fileHeader.Size
+	filename := fileHeader.Filename
 
-	if err := v.store.Save(c.Request.Context(), filename, file, fileHeader.Size); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "storage failure",
+	video_file := domain.VideoFile{
+		Video: domain.Video{
+			Title:            title,
+			Description:      desc,
+			OriginalFilename: filename,
+		},
+		File: file,
+		Size: size,
+	}
+
+	if err := v.service.UploadVideo(ctx.Request.Context(), video_file); err != nil {
+		// TODO: implement custom errors
+		//     if errors.Is(err, service.ErrValidationFailed) { // Example custom error
+		//         ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		//     } else if errors.Is(err, service.ErrStorageFailed) { // Example custom error
+		//         ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store video"})
+		//     } else {
+		//         ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		//     }
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"status": "ok",
 	})
-}
-
-func validate(fileHeader *multipart.FileHeader, sizeLimitMB int64) error {
-	maxSizeB := sizeLimitMB * 1024 * 1024
-
-	if fileHeader.Size > maxSizeB {
-		return fmt.Errorf("file exceeds %d byte limit", maxSizeB)
-	}
-
-	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-	if !allowedVidExt[ext] {
-		return fmt.Errorf("unsupported format: %s", ext)
-	}
-
-	return nil
 }
