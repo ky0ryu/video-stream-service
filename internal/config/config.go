@@ -14,6 +14,7 @@ type Config struct {
 	LocalStorage string
 	Port         string
 	SizeLimitMB  int64
+	DatabaseURL  string
 }
 
 func Load() *Config {
@@ -34,6 +35,7 @@ func Load() *Config {
 		LocalStorage: getEnv("LOCAL_STORAGE_DIR", "./tmp/"),
 		Port:         getEnv("PORT", "3000"),
 		SizeLimitMB:  sizeLimitMB,
+		DatabaseURL:  getEnv("DATABASE_URL", ""),
 	}
 }
 

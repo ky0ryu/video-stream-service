@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/ky0ryu/video-upload-service/internal/db/model"
+	"github.com/ky0ryu/video-upload-service/internal/sqlc/model"
 )
 
 type Transaction struct {
@@ -20,7 +20,7 @@ func NewTransaction(db *pgxpool.Pool) *Transaction {
 	}
 }
 
-func (t *Transaction) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
+func (t *Transaction) ExecTx(ctx context.Context, fn func(*sqlc.Queries) error) error {
 	tx, err := t.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -32,7 +32,7 @@ func (t *Transaction) ExecTx(ctx context.Context, fn func(*db.Queries) error) er
 		}
 	}()
 
-	q := db.New(tx)
+	q := sqlc.New(tx)
 	if err = fn(q); err != nil {
 		return fmt.Errorf("tx fn failed: %w", err)
 	}

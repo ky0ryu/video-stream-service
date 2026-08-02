@@ -8,16 +8,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/ky0ryu/video-upload-service/internal/db/model"
 	"github.com/ky0ryu/video-upload-service/internal/domain"
+	"github.com/ky0ryu/video-upload-service/internal/sqlc/model"
 )
 
 type VideoRepository struct {
-	queries     *db.Queries
+	queries     *sqlc.Queries
 	transaction *Transaction
 }
 
-func NewVideoRepository(q *db.Queries, t *Transaction) *VideoRepository {
+func NewVideoRepository(q *sqlc.Queries, t *Transaction) *VideoRepository {
 	return &VideoRepository{queries: q, transaction: t}
 }
 
@@ -29,14 +29,16 @@ func (vr *VideoRepository) CreateVideo(ctx context.Context, v *domain.Video) err
 		return fmt.Errorf("failed to parse UUID: %w", err)
 	}
 
-	err = vr.transaction.ExecTx(ctx, func(q *db.Queries) error {
+	err = vr.transaction.ExecTx(ctx, func(q *sqlc.Queries) error {
 		time_now := time.Now()
-		params := db.CreateVideoParams{
+		params := sqlc.CreateVideoParams{
 			ID:               vid_id,
 			Title:            v.Title,
 			OriginalFilename: v.OriginalFilename,
 			StoredFilename:   v.StoredFilename,
-			// Description:      dbDescription,
+			Description: pgtype.Text{
+				String: v.Description, Valid: true,
+			},
 			CreatedAt: pgtype.Timestamptz{
 				Time:  time_now,
 				Valid: true,
