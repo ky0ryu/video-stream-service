@@ -46,7 +46,7 @@ func (srvr *Server) Run() error {
 
 func (srvr *Server) Shutdown(ctx context.Context) error {
 	if srvr.httpSrvr != nil {
-		return srvr.Shutdown(ctx)
+		return srvr.httpSrvr.Shutdown(ctx)
 	}
 	return nil
 }

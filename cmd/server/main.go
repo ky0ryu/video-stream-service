@@ -64,7 +64,7 @@ func main() {
 	<-quit // blocking call
 	// once a signal is received, function will proceed to shutdown the server
 
-	log.Println("Shutting down server in 15 seconds...")
+	log.Println("Shutting down server in 15 seconds (or less)...")
 	closeCtx, closeCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer closeCancel()
 
