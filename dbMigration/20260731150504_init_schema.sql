@@ -7,6 +7,7 @@ CREATE TABLE videos (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title               TEXT NOT NULL,
   description         TEXT,
+  state               TEXT NOT NULL,
   original_filename   TEXT NOT NULL,
   stored_filename     TEXT NOT NULL,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
