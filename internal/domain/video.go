@@ -6,14 +6,22 @@ import (
 	"io"
 )
 
+type VideoState string
+
+const (
+	VideoPending     VideoState = "pending"
+	VideoUploading   VideoState = "uploading"
+	VideoTranscoding VideoState = "transcoding"
+	VideoReady       VideoState = "ready"
+)
+
 type Video struct {
 	ID               string
 	Title            string
 	Description      string
+	State            VideoState
 	OriginalFilename string
 	StoredFilename   string
-
-	// State       string // uploading, processing, ready, failed
 }
 
 type VideoFile struct {
@@ -24,6 +32,6 @@ type VideoFile struct {
 
 type VideoRepository interface {
 	CreateVideo(ctx context.Context, v *Video) error
-	// UpdateVideoState(ctx context.Context, id string, state string, url string) error
-	GetVideo(ctx context.Context, id string) (*Video, error)
+	UpdateVideoState(ctx context.Context, id string, state VideoState) error
+	// GetVideo(ctx context.Context, id string) (*Video, error)
 }

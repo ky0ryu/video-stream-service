@@ -13,6 +13,7 @@ type Video struct {
 	ID               uuid.UUID          `json:"id"`
 	Title            string             `json:"title"`
 	Description      pgtype.Text        `json:"description"`
+	State            string             `json:"state"`
 	OriginalFilename string             `json:"original_filename"`
 	StoredFilename   string             `json:"stored_filename"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`

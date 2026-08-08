@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -13,8 +14,9 @@ type APIHandler interface {
 }
 
 type Server struct {
-	engine *gin.Engine
-	port   string
+	engine   *gin.Engine
+	port     string
+	httpSrvr *http.Server
 }
 
 func NewServer(handler APIHandler, port string) *Server {
@@ -30,14 +32,21 @@ func NewServer(handler APIHandler, port string) *Server {
 	}
 }
 
-func (srv *Server) Run() error {
-	httpSrv := &http.Server{
-		Addr:         ":" + srv.port,
-		Handler:      srv.engine,
+func (srvr *Server) Run() error {
+	srvr.httpSrvr = &http.Server{
+		Addr:         ":" + srvr.port,
+		Handler:      srvr.engine,
 		ReadTimeout:  10 * time.Minute,
 		WriteTimeout: 10 * time.Minute,
 		IdleTimeout:  120 * time.Second,
 	}
 
-	return httpSrv.ListenAndServe()
+	return srvr.httpSrvr.ListenAndServe()
+}
+
+func (srvr *Server) Shutdown(ctx context.Context) error {
+	if srvr.httpSrvr != nil {
+		return srvr.Shutdown(ctx)
+	}
+	return nil
 }

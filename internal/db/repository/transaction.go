@@ -27,16 +27,19 @@ func (t *Transaction) ExecTx(ctx context.Context, fn func(*sqlc.Queries) error) 
 	}
 
 	defer func() {
+		fmt.Println("Rolling back DB...")
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
 			log.Printf("unexpected rollback error: %v (original transaction error: %v)", rbErr, err)
 		}
 	}()
 
+	// execute the DB operations thru fn()
 	q := sqlc.New(tx)
 	if err = fn(q); err != nil {
 		return fmt.Errorf("tx fn failed: %w", err)
 	}
 
+	// reflect changes to DB
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit tx: %w", err)
 	}

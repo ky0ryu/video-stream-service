@@ -15,6 +15,7 @@ type Config struct {
 	Port         string
 	SizeLimitMB  int64
 	DatabaseURL  string
+	RedisURL     string
 }
 
 func Load() *Config {
@@ -32,10 +33,11 @@ func Load() *Config {
 
 	return &Config{
 		Env:          getEnv("APP_DEV", "dev"),
-		LocalStorage: getEnv("LOCAL_STORAGE_DIR", "./tmp/"),
+		LocalStorage: getEnv("STORAGE_DIR", "./tmp/"),
 		Port:         getEnv("PORT", "3000"),
 		SizeLimitMB:  sizeLimitMB,
 		DatabaseURL:  getEnv("DATABASE_URL", ""),
+		RedisURL:     getEnv("REDIS_URL", "redis:6379"),
 	}
 }
 

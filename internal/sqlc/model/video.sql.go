@@ -14,17 +14,18 @@ import (
 
 const createVideo = `-- name: CreateVideo :one
 INSERT INTO videos (
-  id, title, description, original_filename, stored_filename, created_at, updated_at
+  id, title, description, state, original_filename, stored_filename, created_at, updated_at
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7
+  $1, $2, $3, $4, $5, $6, $7, $8
 )
-RETURNING id, title, description, original_filename, stored_filename, created_at, updated_at
+RETURNING id, title, description, state, original_filename, stored_filename, created_at, updated_at
 `
 
 type CreateVideoParams struct {
 	ID               uuid.UUID          `json:"id"`
 	Title            string             `json:"title"`
 	Description      pgtype.Text        `json:"description"`
+	State            string             `json:"state"`
 	OriginalFilename string             `json:"original_filename"`
 	StoredFilename   string             `json:"stored_filename"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
@@ -36,6 +37,7 @@ func (q *Queries) CreateVideo(ctx context.Context, arg CreateVideoParams) (Video
 		arg.ID,
 		arg.Title,
 		arg.Description,
+		arg.State,
 		arg.OriginalFilename,
 		arg.StoredFilename,
 		arg.CreatedAt,
@@ -46,6 +48,7 @@ func (q *Queries) CreateVideo(ctx context.Context, arg CreateVideoParams) (Video
 		&i.ID,
 		&i.Title,
 		&i.Description,
+		&i.State,
 		&i.OriginalFilename,
 		&i.StoredFilename,
 		&i.CreatedAt,
@@ -55,7 +58,7 @@ func (q *Queries) CreateVideo(ctx context.Context, arg CreateVideoParams) (Video
 }
 
 const getVideo = `-- name: GetVideo :one
-SELECT id, title, description, original_filename, stored_filename, created_at, updated_at FROM videos
+SELECT id, title, description, state, original_filename, stored_filename, created_at, updated_at FROM videos
 WHERE id = $1
 `
 
@@ -66,6 +69,33 @@ func (q *Queries) GetVideo(ctx context.Context, id uuid.UUID) (Video, error) {
 		&i.ID,
 		&i.Title,
 		&i.Description,
+		&i.State,
+		&i.OriginalFilename,
+		&i.StoredFilename,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateVideoState = `-- name: UpdateVideoState :one
+UPDATE videos SET state = $2 WHERE id = $1
+RETURNING id, title, description, state, original_filename, stored_filename, created_at, updated_at
+`
+
+type UpdateVideoStateParams struct {
+	ID    uuid.UUID `json:"id"`
+	State string    `json:"state"`
+}
+
+func (q *Queries) UpdateVideoState(ctx context.Context, arg UpdateVideoStateParams) (Video, error) {
+	row := q.db.QueryRow(ctx, updateVideoState, arg.ID, arg.State)
+	var i Video
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.State,
 		&i.OriginalFilename,
 		&i.StoredFilename,
 		&i.CreatedAt,
