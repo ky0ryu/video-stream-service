@@ -63,6 +63,8 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 		//     } else {
 		//         ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		//     }
+
+		// error from UploadVideo() should not be return to the API caller
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})

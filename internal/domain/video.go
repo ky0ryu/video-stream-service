@@ -9,10 +9,12 @@ import (
 type VideoState string
 
 const (
-	VideoPending     VideoState = "pending"
-	VideoUploading   VideoState = "uploading"
-	VideoTranscoding VideoState = "transcoding"
-	VideoReady       VideoState = "ready"
+	VideoPending     VideoState = "pending"     // video upload started (default state)
+	VideoUploading   VideoState = "uploading"   // video upload is ongoing
+	VideoTranscoding VideoState = "transcoding" // video transcode is ongoing
+	VideoFailed      VideoState = "failed"      // upload or transcode had failed
+	VideoDeleted     VideoState = "deleted"     // file has been deleted
+	VideoReady       VideoState = "ready"       // video is ready for playback
 )
 
 type Video struct {

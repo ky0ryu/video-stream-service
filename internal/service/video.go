@@ -53,20 +53,15 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 	// save the video data to db
 	if err := svc.repo.CreateVideo(ctx, &vf.Video); err != nil {
 		// Delete the file incase the DB transaction fails
-		if delErr := svc.store.Delete(ctx, vf.StoredFilename); delErr != nil {
-			fmt.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
-		}
+		svc.deleteFileOnFailure(ctx, vf.Video)
 		return fmt.Errorf("failed to create video in DB: %w", err)
 	}
 
-	// TODO: implement DB delete and asynq failure case
-	// if err := svc.createTranscodeTask(vf.Video); err != nil {
-	// 	// Delete the file when transcode enqueue fails
-	// 	if delErr := svc.store.Delete(ctx, vf.StoredFilename); delErr != nil {
-	// 		fmt.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
-	// 	}
-	// 	return fmt.Errorf("failed to create video in DB: %w", err)
-	// }
+	if err := svc.createTranscodeTask(vf.Video); err != nil {
+		// Delete the file when transcode enqueue fails
+		svc.deleteFileOnFailure(ctx, vf.Video)
+		return fmt.Errorf("failed to send transcode video task: %w", err)
+	}
 
 	return nil
 }
@@ -99,4 +94,14 @@ func (svc *VideoService) createTranscodeTask(video domain.Video) error {
 	}
 
 	return nil
+}
+
+func (svc *VideoService) deleteFileOnFailure(ctx context.Context, v domain.Video) {
+	if delErr := svc.store.Delete(ctx, v.StoredFilename); delErr != nil {
+		fmt.Printf("failed to delete uploaded file: %s: %v", v.StoredFilename, delErr)
+	}
+
+	if updErr := svc.repo.UpdateVideoState(ctx, v.ID, domain.VideoDeleted); updErr != nil {
+		fmt.Printf("failed to update state: %v", updErr)
+	}
 }
