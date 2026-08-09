@@ -46,14 +46,14 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 	vf.StoredFilename = vf.ID + ext
 
 	// save the file to the specified storage
-	if err := svc.store.Save(ctx, vf.StoredFilename, vf.File, vf.Size); err != nil {
+	if err := svc.store.Save(ctx, vf.ID, vf.StoredFilename, vf.File, vf.Size); err != nil {
 		return fmt.Errorf("failed to save video file: %w", err)
 	}
 
 	// save the video data to db
 	if err := svc.repo.CreateVideo(ctx, &vf.Video); err != nil {
 		// Delete the file incase the DB transaction fails
-		if delErr := svc.store.Delete(ctx, vf.StoredFilename); delErr != nil {
+		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
 			fmt.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
 		}
 		return fmt.Errorf("failed to create video data in DB: %w", err)
@@ -61,7 +61,7 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 
 	if err := svc.createTranscodeTask(vf.Video); err != nil {
 		// Delete the file when transcode enqueue fails
-		if delErr := svc.store.Delete(ctx, vf.StoredFilename); delErr != nil {
+		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
 			fmt.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
 		}
 
