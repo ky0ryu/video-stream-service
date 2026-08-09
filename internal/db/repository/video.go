@@ -66,7 +66,7 @@ func (vr *VideoRepository) CreateVideo(ctx context.Context, v *domain.Video) err
 }
 
 func (vr *VideoRepository) UpdateVideoState(ctx context.Context, id string, state domain.VideoState) error {
-	fmt.Printf("Repo::UpdateVideoState() ID: %s, state: %s, OriginalFilename: %s, StoredFilename: %s\n", id, state)
+	fmt.Printf("Repo::UpdateVideoState() ID: %s, state: %s\n", id, state)
 
 	vid_id, err := uuid.Parse(id)
 	if err != nil {

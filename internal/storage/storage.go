@@ -27,6 +27,7 @@ func (ctxRdr *contextAwareReader) Read(p []byte) (num int, err error) {
 type Storage interface {
 	Save(ctx context.Context, id string, filename string, rdr io.Reader, size int64) error
 	Delete(ctx context.Context, folderName string, fileName string) error
+	GetFullFilePath(folderName string, fileName string) string
 }
 
 type LocalStorage struct {
@@ -78,9 +79,13 @@ func (s *LocalStorage) Delete(ctx context.Context, folderName string, fileName s
 		return err
 	}
 
-	filePath := filepath.Join(s.baseDir, filepath.Clean("/"+folderName), filepath.Clean("/"+fileName))
+	filePath := s.GetFullFilePath(folderName, fileName)
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("delete file: %w", err)
 	}
 	return nil
+}
+
+func (s *LocalStorage) GetFullFilePath(folderName string, fileName string) string {
+	return filepath.Join(s.baseDir, filepath.Clean("/"+folderName), filepath.Clean("/"+fileName))
 }

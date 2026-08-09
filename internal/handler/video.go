@@ -2,7 +2,7 @@
 package handler
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -66,7 +66,7 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 		//     }
 
 		// error from UploadVideo() should not be return to the API caller
-		fmt.Errorf("UploadVideo failed: %w", err)
+		log.Printf("UploadVideo failed: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Something went wrong on the server",
 		})

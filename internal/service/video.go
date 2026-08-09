@@ -90,9 +90,10 @@ func validate(filename string, size int64, sizeLimitMB int64) error {
 }
 
 func (svc *VideoService) createTranscodeTask(video domain.Video) error {
+	filePath := svc.store.GetFullFilePath(video.ID, video.StoredFilename)
 	payload, _ := json.Marshal(task.TranscodeVideoPayload{
 		VideoID: video.ID,
-		SaveDir: video.StoredFilename,
+		SaveDir: filePath,
 	})
 	t := asynq.NewTask(task.TypeTranscodeVideoType, payload)
 

@@ -27,8 +27,9 @@ func (t *Transaction) ExecTx(ctx context.Context, fn func(*sqlc.Queries) error) 
 	}
 
 	defer func() {
-		fmt.Println("Rolling back DB...")
-		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+		// use a new context.Background() Rollback can communicate with the DB
+		// if incase ctx have already timeout-out or have been cancelled
+		if rbErr := tx.Rollback(context.Background()); rbErr != nil && rbErr != pgx.ErrTxClosed {
 			log.Printf("unexpected rollback error: %v (original transaction error: %v)", rbErr, err)
 		}
 	}()
