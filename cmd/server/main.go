@@ -19,6 +19,7 @@ import (
 	"github.com/ky0ryu/video-upload-service/internal/service"
 	sqlc "github.com/ky0ryu/video-upload-service/internal/sqlc/model"
 	"github.com/ky0ryu/video-upload-service/internal/storage"
+	"github.com/ky0ryu/video-upload-service/internal/validator"
 )
 
 func main() {
@@ -47,7 +48,8 @@ func main() {
 
 	// server initialization
 	store := storage.NewLocalStorage(cfg.LocalStorage)
-	service := service.NewVideoService(store, repo, asynqClient, cfg.SizeLimitMB)
+	vtr := validator.NewVideoValidator(cfg.SizeLimitMB)
+	service := service.NewVideoService(store, repo, vtr, asynqClient, cfg.SizeLimitMB)
 	handler := handler.NewVideoHandler(service)
 	srvr := api.NewServer(handler, cfg.Port)
 

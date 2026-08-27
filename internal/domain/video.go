@@ -37,3 +37,7 @@ type VideoRepository interface {
 	UpdateVideoState(ctx context.Context, id string, state VideoState) error
 	// GetVideo(ctx context.Context, id string) (*Video, error)
 }
+
+type VideoValidator interface {
+	Validate(vf *VideoFile) error
+}

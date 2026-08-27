@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"path/filepath"
 
@@ -19,6 +18,7 @@ import (
 type VideoService struct {
 	store       storage.Storage
 	repo        domain.VideoRepository
+	validator   domain.VideoValidator
 	asyncClient *asynq.Client
 	sizeLimitMB int64
 }
@@ -30,13 +30,13 @@ var allowedVidExt = map[string]bool{
 	".avi": true,
 }
 
-func NewVideoService(s storage.Storage, r domain.VideoRepository, ac *asynq.Client, sl int64) *VideoService {
-	return &VideoService{store: s, repo: r, asyncClient: ac, sizeLimitMB: sl}
+func NewVideoService(s storage.Storage, r domain.VideoRepository, vv domain.VideoValidator, ac *asynq.Client, sl int64) *VideoService {
+	return &VideoService{store: s, repo: r, validator: vv, asyncClient: ac, sizeLimitMB: sl}
 }
 
 func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) error {
 
-	if err := validate(vf.OriginalFilename, vf.Size, svc.sizeLimitMB); err != nil {
+	if err := svc.validator.Validate(&vf); err != nil {
 		return fmt.Errorf("video validation failed: %w", err)
 	}
 
@@ -69,21 +69,6 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 			fmt.Printf("failed to update state: %v", updErr)
 		}
 		return fmt.Errorf("failed to send transcode video task: %w", err)
-	}
-
-	return nil
-}
-
-func validate(filename string, size int64, sizeLimitMB int64) error {
-	maxSizeB := sizeLimitMB * 1024 * 1024
-
-	if size > maxSizeB {
-		return fmt.Errorf("file exceeds %d byte limit", maxSizeB)
-	}
-
-	ext := strings.ToLower(filepath.Ext(filename))
-	if !allowedVidExt[ext] {
-		return fmt.Errorf("unsupported format: %s", ext)
 	}
 
 	return nil
