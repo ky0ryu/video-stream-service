@@ -30,7 +30,7 @@ func (vt *VideoTranscoder) TranscodeVideo(ctx context.Context, t *asynq.Task) er
 		fmt.Printf("failed to update state: %v", updErr)
 	}
 
-	path := strings.TrimSuffix(p.SaveDir, filepath.Ext(p.SaveDir))
+	path := strings.TrimSuffix(p.SaveDir, filepath.Ext(p.SaveDir)) + ".m3u8"
 
 	fmt.Printf("transcode video: %v : %v", p.VideoID, path)
 	cmd := exec.CommandContext(ctx, "ffmpeg",
