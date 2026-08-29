@@ -1,10 +1,13 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/ky0ryu/video-upload-service/internal/domain"
 )
 
@@ -13,6 +16,13 @@ var allowedVidExt = map[string]bool{
 	".mov": true,
 	".mkv": true,
 	".avi": true,
+}
+
+var allowedVideos = map[string]bool{
+	"video/mp4": true,
+	"video/mov": true,
+	"video/mkv": true,
+	"video/avi": true,
 }
 
 type VideoValidator struct {
@@ -32,6 +42,23 @@ func (vv *VideoValidator) Validate(vf *domain.VideoFile) error {
 
 	if err := checkFileFormat(vf.OriginalFilename); err != nil {
 		return err
+	}
+
+	mtype, err := mimetype.DetectReader(vf.File)
+	if err != nil {
+		return fmt.Errorf("invalid video file: %w", err)
+	}
+
+	// make sure that vf.File can be asserted to ReadSeeker
+	if seeker, ok := vf.File.(io.ReadSeeker); ok {
+		// reset the seeker at the beginning of the stream
+		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+			return fmt.Errorf("failed to rollback file reader: %w", err)
+		}
+	}
+
+	if !allowedVideos[mtype.String()] {
+		return errors.New("unsupported video format")
 	}
 	return nil
 }
