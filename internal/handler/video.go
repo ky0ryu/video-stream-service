@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ky0ryu/video-upload-service/internal/domain"
+	apiResponse "github.com/ky0ryu/video-upload-service/internal/response"
 	"github.com/ky0ryu/video-upload-service/internal/service"
 )
 
@@ -23,18 +24,14 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 	// multipart file parse
 	fileHeader, err := ctx.FormFile("file")
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "file required",
-		})
+		ctx.Error(apiResponse.BadRequest(err))
 		return
 	}
 
 	// open
 	file, err := fileHeader.Open()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "unable to open file",
-		})
+		ctx.Error(apiResponse.InternalServerError(err))
 		return
 	}
 	defer file.Close()
@@ -56,24 +53,13 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 	}
 
 	if err := v.service.UploadVideo(ctx.Request.Context(), video_file); err != nil {
-		// TODO: implement custom errors
-		//     if errors.Is(err, service.ErrValidationFailed) { // Example custom error
-		//         ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		//     } else if errors.Is(err, service.ErrStorageFailed) { // Example custom error
-		//         ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store video"})
-		//     } else {
-		//         ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		//     }
 
-		// error from UploadVideo() should not be return to the API caller
 		log.Printf("UploadVideo failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Something went wrong on the server",
-		})
+		ctx.Error(err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "ok",
+	ctx.JSON(http.StatusCreated, gin.H{
+		"status": "created",
 	})
 }

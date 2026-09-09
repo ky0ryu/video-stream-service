@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/ky0ryu/video-upload-service/internal/domain"
+	apierror "github.com/ky0ryu/video-upload-service/internal/response"
 	"github.com/ky0ryu/video-upload-service/internal/storage"
 	"github.com/ky0ryu/video-upload-service/internal/task"
 )
@@ -37,7 +39,8 @@ func NewVideoService(s storage.Storage, r domain.VideoRepository, vv domain.Vide
 func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) error {
 
 	if err := svc.validator.Validate(&vf); err != nil {
-		return fmt.Errorf("video validation failed: %w", err)
+		log.Printf("video validation failed: %v", err)
+		return apierror.UnsupportedMediaType(err)
 	}
 
 	// generate unique video ID
@@ -47,28 +50,35 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 
 	// save the file to the specified storage
 	if err := svc.store.Save(ctx, vf.ID, vf.StoredFilename, vf.File, vf.Size); err != nil {
-		return fmt.Errorf("failed to save video file: %w", err)
+		log.Printf("failed to save video file: %v", err)
+		return apierror.InternalServerError(err)
 	}
 
 	// save the video data to db
 	if err := svc.repo.CreateVideo(ctx, &vf.Video); err != nil {
 		// Delete the file incase the DB transaction fails
 		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
-			fmt.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
+			log.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
+			return apierror.InternalServerError(delErr)
 		}
-		return fmt.Errorf("failed to create video data in DB: %w", err)
+		log.Printf("failed to create video data in DB: %v", err)
+		return apierror.InternalServerError(err)
 	}
 
 	if err := svc.createTranscodeTask(vf.Video); err != nil {
 		// Delete the file when transcode enqueue fails
 		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
-			fmt.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
+			log.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
+			return apierror.InternalServerError(delErr)
 		}
 
 		if updErr := svc.repo.UpdateVideoState(ctx, vf.ID, domain.VideoDeleted); updErr != nil {
-			fmt.Printf("failed to update state: %v", updErr)
+			log.Printf("failed to update state: %v", updErr)
+			return apierror.InternalServerError(updErr)
 		}
-		return fmt.Errorf("failed to send transcode video task: %w", err)
+
+		log.Printf("failed to send transcode video task: %v", err)
+		return apierror.InternalServerError(err)
 	}
 
 	return nil

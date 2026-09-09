@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ky0ryu/video-upload-service/internal/handler"
 )
 
 type APIHandler interface {
@@ -19,12 +20,13 @@ type Server struct {
 	httpSrvr *http.Server
 }
 
-func NewServer(handler APIHandler, port string) *Server {
+func NewServer(hdlr APIHandler, port string) *Server {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(gin.Logger())
+	engine.Use(handler.ErrorHandler())
 
-	engine.POST("/upload", handler.Upload)
+	engine.POST("/upload", hdlr.Upload)
 
 	return &Server{
 		engine: engine,
