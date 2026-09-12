@@ -31,8 +31,7 @@ func main() {
 	}()
 
 	queries := sqlc.New(pool)
-	tx := repository.NewTransaction(pool)
-	repo := repository.NewVideoRepository(queries, tx)
+	repo := repository.NewVideoRepository(queries)
 	tr := &transcoder.VideoTranscoder{Repo: repo}
 
 	var redisOpt asynq.RedisConnOpt

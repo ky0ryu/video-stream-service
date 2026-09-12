@@ -13,12 +13,11 @@ import (
 )
 
 type VideoRepository struct {
-	queries     *sqlc.Queries
-	transaction *Transaction
+	queries *sqlc.Queries
 }
 
-func NewVideoRepository(q *sqlc.Queries, t *Transaction) *VideoRepository {
-	return &VideoRepository{queries: q, transaction: t}
+func NewVideoRepository(q *sqlc.Queries) *VideoRepository {
+	return &VideoRepository{queries: q}
 }
 
 func (vr *VideoRepository) CreateVideo(ctx context.Context, v *domain.Video) error {
@@ -30,39 +29,35 @@ func (vr *VideoRepository) CreateVideo(ctx context.Context, v *domain.Video) err
 		return fmt.Errorf("failed to parse UUID: %w", err)
 	}
 
-	err = vr.transaction.ExecTx(ctx, func(q *sqlc.Queries) error {
-		time_now := time.Now()
-		params := sqlc.CreateVideoParams{
-			ID:               vid_id,
-			Title:            v.Title,
-			OriginalFilename: v.OriginalFilename,
-			StoredFilename:   v.StoredFilename,
-			Description: pgtype.Text{
-				String: v.Description, Valid: true,
-			},
-			State: string(domain.VideoPending),
-			CreatedAt: pgtype.Timestamptz{
-				Time:  time_now,
-				Valid: true,
-			},
-			UpdatedAt: pgtype.Timestamptz{
-				Time:  time_now,
-				Valid: true,
-			},
-		}
-		fmt.Printf("Repository: Executing CreateVideo with params: %+v\n", params) // prints with field names
+	time_now := time.Now()
+	params := sqlc.CreateVideoParams{
+		ID:               vid_id,
+		Title:            v.Title,
+		OriginalFilename: v.OriginalFilename,
+		StoredFilename:   v.StoredFilename,
+		Description: pgtype.Text{
+			String: v.Description, Valid: true,
+		},
+		State: string(domain.VideoPending),
+		CreatedAt: pgtype.Timestamptz{
+			Time:  time_now,
+			Valid: true,
+		},
+		UpdatedAt: pgtype.Timestamptz{
+			Time:  time_now,
+			Valid: true,
+		},
+	}
+	fmt.Printf("Repository: Executing CreateVideo with params: %+v\n", params) // prints with field names
 
-		_, err := q.CreateVideo(ctx, params)
-		if err != nil {
-			fmt.Printf("Repository: q.CreateVideo returned error: %v\n", err)
-			return fmt.Errorf("failed to create video: %w", err)
-		}
+	_, crtErr := vr.queries.CreateVideo(ctx, params)
+	if crtErr != nil {
+		fmt.Printf("Repository: q.CreateVideo returned error: %v\n", crtErr)
+		return fmt.Errorf("failed to create video: %w", crtErr)
+	}
 
-		fmt.Printf("Repository: q.CreateVideo succeeded, no error.\n")
-		return nil
-	})
-
-	return err
+	fmt.Printf("Repository: q.CreateVideo succeeded.\n")
+	return nil
 }
 
 func (vr *VideoRepository) UpdateVideoState(ctx context.Context, id string, state domain.VideoState) error {
@@ -72,21 +67,17 @@ func (vr *VideoRepository) UpdateVideoState(ctx context.Context, id string, stat
 	if err != nil {
 		return fmt.Errorf("failed to parse UUID: %w", err)
 	}
-	err = vr.transaction.ExecTx(ctx, func(q *sqlc.Queries) error {
-		params := sqlc.UpdateVideoStateParams{
-			ID:    vid_id,
-			State: string(state),
-		}
+	params := sqlc.UpdateVideoStateParams{
+		ID:    vid_id,
+		State: string(state),
+	}
 
-		_, err := q.UpdateVideoState(ctx, params)
-		if err != nil {
-			fmt.Printf("Repository: q.UpdateVideoState returned error: %v\n", err)
-			return fmt.Errorf("failed to update video state: %w", err)
-		}
+	_, updErr := vr.queries.UpdateVideoState(ctx, params)
+	if updErr != nil {
+		fmt.Printf("Repository: q.UpdateVideoState returned error: %v\n", updErr)
+		return fmt.Errorf("failed to update video state: %w", updErr)
+	}
 
-		fmt.Printf("Repository: q.UpdateVideoState succeeded, no error.\n")
-		return nil
-	})
-
-	return err
+	fmt.Printf("Repository: q.UpdateVideoState succeeded.\n")
+	return nil
 }

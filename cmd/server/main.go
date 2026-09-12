@@ -37,8 +37,7 @@ func main() {
 	}()
 
 	queries := sqlc.New(pool)
-	tx := repository.NewTransaction(pool)
-	repo := repository.NewVideoRepository(queries, tx)
+	repo := repository.NewVideoRepository(queries)
 
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisURL})
 	defer func() {
