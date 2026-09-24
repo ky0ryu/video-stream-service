@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-api
+  namespace: video-transcoder
+
+  spec:
+    replicas: 2
+
+    selector:
+      matchLabels:
+        app: video-api
+
+    strategy:
+      type: RollingUpdate
+
+    template:
+      metadata:
+        labels:
+          app: video-api
+
+      spec:
+        containers:
+          - name: api
+            image: localhost:5001/video-api:dev
+            imagePullPolicy: Always
+            ports:
+              - containerPort: 8080
+            env:
+              - name: DATABASE_URL
+                value: postgres://user:password@postgres:5432/video_db?sslmode=disable
+
+              - name: REDIS_URL
+                valueFrom:
+                  configMapKeyRef:
+                    name: video-config
+                    key: STORAGE_DIR
+
+              - name: PORT
+                valeFrom:
+                  configMapKeyRef:
+                    name: video-config
+                    key: API_PORT
+
+            volumeMounts:
+              - name: video-storage
+                mountPath: /tmp/uploads
+
+            readinessProbe:
+              httpGet:
+                path: /health/ready
+                port: 8080
+
+              initialDelaySeconds: 5
+              periodSeconds: 5
+
+            livenessProbe:
+              httpGet:
+                path: /health/live
+                port: 8080
+
+              initialDelaySeconds: 15
+              periodSeconds: 10
+
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+
+        volumes:
+          - name: video-storage
+            persistentVolumeClaim:
+              claimName: video-storage
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-api
+  namespace: video
+
+spec:
+  selector:
+    app: video-api
+
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+  type: ClusterIP

@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-worker
+  namespace: video-transcoder
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: video-worker
+
+  template:
+    metadata:
+      labels:
+        app: video-worker
+
+    spec:
+      containers:
+        - name: worker
+          image: localhost:5001/video-worker:dev
+          imagePullPolicy: Always
+
+          env:
+            - name: DATABASE_URL
+              value: postgres://user:password@postgres:5432/video_db?sslmode=disable
+
+            - name: REDIS_URL
+              value: redis:6379
+
+            - name: STORAGE_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: video-config
+                  key: STORAGE_DIR
+
+            - name: ASYNQ_CONCURRENCY
+              valueFrom:
+                configMapKeyRef:
+                  name: video-config
+                  key: ASYNQ_CONCURRENCY
+
+          volumeMounts:
+            - name: video-storage
+              mountPath: /tmp/uploads
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+
+            limits:
+              cpu: "2"
+              memory: 1Gi
+
+      volumes:
+        - name: video-storage
+          persistentVolumeClaim:
+            claimName: video-storage

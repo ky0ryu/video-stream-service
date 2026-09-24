@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: video-config
+  namespace: video-transcoder
+
+data:
+  DATABASE_HOST: postgres
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: video_db
+
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+
+  STORAGE_DIR: /tmp/uploads
+  API_PORT: "8080"
+
+  ASYNCQ_CONCURRENCY: "2"
