@@ -15,4 +15,4 @@ data:
   STORAGE_DIR: /tmp/uploads
   API_PORT: "8080"
 
-  ASYNCQ_CONCURRENCY: "2"
+  ASYNQ_CONCURRENCY: "2"
