@@ -31,13 +31,16 @@ metadata:
                 value: postgres://user:password@postgres:5432/video_db?sslmode=disable
 
               - name: REDIS_URL
+                value: redis:6379
+
+              - name: STORAGE_DIR
                 valueFrom:
                   configMapKeyRef:
                     name: video-config
                     key: STORAGE_DIR
 
               - name: PORT
-                valeFrom:
+                valueFrom:
                   configMapKeyRef:
                     name: video-config
                     key: API_PORT
@@ -65,6 +68,10 @@ metadata:
             resources:
               requests:
                 cpu: 100m
+                memory: 128Mi
+
+              limits:
+                cpu: 500m
                 memory: 512Mi
 
         volumes:
@@ -77,7 +84,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: video-api
-  namespace: video
+  namespace: video-transcoder
 
 spec:
   selector:

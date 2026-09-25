@@ -4,10 +4,10 @@ metadata:
   name: video-storage
   namespace: video-transcoder
 
-  spec:
-    accessModes:
-      - ReadWriteOnce
+spec:
+  accessModes:
+    - ReadWriteOnce
 
-    resources:
-      requests:
-        storage: 10Gi
+  resources:
+    requests:
+      storage: 10Gi

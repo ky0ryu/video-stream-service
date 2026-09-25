@@ -17,7 +17,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: redis
-  namespace: video
+  namespace: video-transcoder
 
 spec:
   serviceName: redis
@@ -47,7 +47,7 @@ spec:
 
           volumeMounts:
             - name: redis-data
-              mountPath: /tmp/uploads
+              mountPath: /data
 
           readinessProbe:
             exec:
