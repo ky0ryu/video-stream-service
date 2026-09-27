@@ -20,6 +20,7 @@ import (
 	sqlc "github.com/ky0ryu/video-upload-service/internal/sqlc/model"
 	"github.com/ky0ryu/video-upload-service/internal/storage"
 	"github.com/ky0ryu/video-upload-service/internal/validator"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -45,12 +46,15 @@ func main() {
 		asynqClient.Close()
 	}()
 
+	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisURL})
+
 	// server initialization
 	store := storage.NewLocalStorage(cfg.LocalStorage)
 	vtr := validator.NewVideoValidator(cfg.SizeLimitMB)
 	service := service.NewVideoService(store, repo, vtr, asynqClient, cfg.SizeLimitMB)
-	handler := handler.NewVideoHandler(service)
-	srvr := api.NewServer(handler, cfg.Port)
+	hhandler := handler.NewHealthHandler(pool, redisClient)
+	vhandler := handler.NewVideoHandler(service)
+	srvr := api.NewServer(vhandler, hhandler, cfg.Port)
 
 	// the server is run asynchronously to allow graceful error handling
 	go func() {

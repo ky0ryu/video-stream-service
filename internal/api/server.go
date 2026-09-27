@@ -20,12 +20,17 @@ type Server struct {
 	httpSrvr *http.Server
 }
 
-func NewServer(hdlr APIHandler, port string) *Server {
+func NewServer(hdlr APIHandler, hhdlr *handler.HealthHandler, port string) *Server {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(gin.Logger())
 	engine.Use(handler.ErrorHandler())
 
+	// health routes
+	engine.GET("/health/live", hhdlr.Live)
+	engine.GET("/health/ready", hhdlr.Ready)
+
+	// main service routes
 	engine.POST("/upload", hdlr.Upload)
 
 	return &Server{
