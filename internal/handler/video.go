@@ -42,7 +42,7 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 	size := fileHeader.Size
 	filename := fileHeader.Filename
 
-	video_file := domain.VideoFile{
+	videoFile := domain.VideoFile{
 		Video: domain.Video{
 			Title:            title,
 			Description:      desc,
@@ -52,7 +52,7 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 		Size: size,
 	}
 
-	if err := v.service.UploadVideo(ctx.Request.Context(), video_file); err != nil {
+	if err := v.service.UploadVideo(ctx.Request.Context(), videoFile); err != nil {
 
 		log.Printf("UploadVideo failed: %v", err)
 		ctx.Error(err)
