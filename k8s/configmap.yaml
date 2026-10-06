@@ -1,18 +1,25 @@
+# DO NOT commit real secrets to git. For local kind dev this is fine as
+# plain values, but swap to `kubectl create secret` from an untracked file,
+# or a proper secrets manager, before this ever points at real infra.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: transcoder-secrets
+  namespace: transcoder
+type: Opaque
+stringData:
+  POSTGRES_USER: "user"
+  POSTGRES_PASSWORD: "password"
+  POSTGRES_DB: "video_db"
+  DATABASE_URL: "postgres://user:password@postgres:5432/video_db?sslmode=disable"
+  REDIS_URL: "redis:6379"
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: video-config
-  namespace: video-transcoder
-
+  name: transcoder-config
+  namespace: transcoder
 data:
-  DATABASE_HOST: postgres
-  DATABASE_PORT: "5432"
-  DATABASE_NAME: video_db
-
-  REDIS_HOST: redis
-  REDIS_PORT: "6379"
-
-  STORAGE_DIR: /tmp/uploads
-  API_PORT: "8080"
-
+  STORAGE_DIR: "/data/videos"
+  PORT: "8080"
   ASYNQ_CONCURRENCY: "2"

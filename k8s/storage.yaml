@@ -1,13 +1,17 @@
+# RWO only works here because kind's default local-path-provisioner ties
+# the PVC to a single node, and this cluster has exactly one node — so
+# both the api and worker pods, scheduled onto that same node, can mount
+# it concurrently. Add a second kind node, or move to a real multi-node
+# cluster, and this silently breaks. The real fix is S3 (or equivalent)
+# for video storage — treat this PVC as a local-dev shim, not a pattern
+# to carry into production.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: video-storage
-  namespace: video-transcoder
-
+  namespace: transcoder
 spec:
-  accessModes:
-    - ReadWriteOnce
-
+  accessModes: ["ReadWriteOnce"]
   resources:
     requests:
       storage: 10Gi
