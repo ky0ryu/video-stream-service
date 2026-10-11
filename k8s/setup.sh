@@ -19,8 +19,8 @@ kubectl wait --namespace ingress-nginx \
   --timeout=120s
 
 echo "==> Building images"
-docker build -t video-api:dev -f Dockerfile.api ..
-docker build -t video-worker:dev -f Dockerfile.worker ..
+docker build -t video-api:dev -f ../Dockerfile.api ..
+docker build -t video-worker:dev -f ../Dockerfile.worker ..
 
 echo "==> Loading images into kind (kind can't see your local Docker cache otherwise)"
 kind load docker-image video-api:dev --name "${CLUSTER_NAME}"
