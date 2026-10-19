@@ -44,11 +44,11 @@ spec:
             - name: video-storage
               mountPath: /data/videos
           readinessProbe:
-            httpGet: { path: /readyz, port: 8080 }
+            httpGet: { path: /health/ready, port: 8080 }
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
-            httpGet: { path: /healthz, port: 8080 }
+            httpGet: { path: /health/live, port: 8080 }
             initialDelaySeconds: 10
             periodSeconds: 10
           resources:

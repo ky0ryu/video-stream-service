@@ -38,12 +38,12 @@ spec:
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "user", "-d", "video_db"]
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 5
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "user", "-d", "video_db"]
-            initialDelaySeconds: 15
+            initialDelaySeconds: 45
             periodSeconds: 10
           resources:
             requests: { cpu: "100m", memory: "256Mi" }
