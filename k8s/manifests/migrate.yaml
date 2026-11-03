@@ -38,17 +38,16 @@ spec:
             readOnlyRootFilesystem: true
       containers:
         - name: migrate
-          image: ghcr.io/pressly/goose:3.24.2
+          image: alpine:3.19
           imagePullPolicy: IfNotPresent
-          command:
-            [
-              "goose",
-              "-dir",
-              "/migrations",
-              "postgres",
-              "$(DATABASE_URL)",
-              "up",
-            ]
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "==> Downloading goose binary..."
+              wget -qO /tmp/goose https://github.com/pressly/goose/releases/download/v3.24.2/goose_linux_x86_64
+              chmod +x /tmp/goose
+              echo "==> Running database migrations..."
+              /tmp/goose -dir /migrations postgres "${DATABASE_URL}" up
           envFrom:
             - secretRef: { name: transcoder-secrets }
           volumeMounts:
