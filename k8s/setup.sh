@@ -37,6 +37,20 @@ echo "==> Waiting for postgres rollout"
 kubectl -n transcoder rollout status deployment/postgres --timeout=90s
 echo "==> Waiting for redis rollout"
 kubectl -n transcoder rollout status deployment/redis --timeout=90s
+echo "==> Running DB migrations (Job: migrate)"
+kubectl -n transcoder create configmap migrations \
+  --from-file="${ROOT_DIR}/dbMigration/" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# A completed Job from a previous run is immutable, so delete-then-apply makes this idempotent.
+kubectl -n transcoder delete job migrate --ignore-not-found
+kubectl apply -f "${K8S_DIR}/migrate.yaml"
+
+if ! kubectl -n transcoder wait --for=condition=complete job/migrate --timeout=180s; then
+  echo "ERROR: migration failed. Logs:"
+  kubectl -n transcoder logs job/migrate --tail=50
+  exit 1
+fi
 echo "==> Waiting for api rollout"
 kubectl -n transcoder rollout status deployment/api --timeout=90s
 echo "==> Waiting for worker rollout"

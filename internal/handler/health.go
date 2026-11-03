@@ -38,6 +38,29 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 		return
 	}
 
+	// A reachable Postgres with no schema is not ready: /upload would 500 on a missing relation
+	// Verify the migration landed successfully
+	var migrated bool
+	if err := h.db.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'videos')`,
+	).Scan(&migrated); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": 	"down",
+			"database": "schema check failed",
+			"error": err.Error(),
+		})
+		return
+	}
+	if !migrated {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": 	"down",
+				"database": "schema not migrated - run: kubectl -n transcoder delete job migrate --ignore-not-found && kubectl apply -f k8s/manifests/migrate.yaml",
+			})
+		return
+	}
+
 	// check redis availability
 	if err := h.redis.Ping(ctx).Err(); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{

@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: transcoder
+  labels:
+    app: migrate
+    app.kubernetes.io/part-of: transcoder
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 600 # keeps `setup.sh` reruns clean; Job is disposable
+  template:
+    metadata:
+      labels:
+        app: migrate
+    spec:
+      restartPolicy: Never # required for Jobs; Never so a failure is visible
+      # same fsGroup/uid as the app so goose (a static binary) can run from a writable dir
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done",
+            ]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+      containers:
+        - name: migrate
+          image: ghcr.io/pressly/goose:3.24.2
+          imagePullPolicy: IfNotPresent
+          command:
+            [
+              "goose",
+              "-dir",
+              "/migrations",
+              "postgres",
+              "$(DATABASE_URL)",
+              "up",
+            ]
+          envFrom:
+            - secretRef: { name: transcoder-secrets }
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+      volumes:
+        # populated by setup.sh:
+        #   kubectl -n transcoder create configmap migrations \
+        #     --from-file=dbMigration/ --dry-run=client -o yaml | kubectl apply -f -
+        - name: migrations
+          configMap: { name: migrations }
+        - name: tmp
+          emptyDir: { sizeLimit: "16Mi" }

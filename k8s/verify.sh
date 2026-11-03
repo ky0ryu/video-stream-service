@@ -14,22 +14,33 @@ set -uo pipefail
 NS="${NS:-transcoder}"
 CLUSTER="${CLUSTER:-transcoder}"
 BASE_URL="${BASE_URL:-http://localhost:8080}"
+LIVE_PATH="${LIVE_PATH:-/health/live}"
+READY_PATH="${READY_PATH:-/health/ready}"
 PASS=0
 FAIL=0
 
 for tool in kubectl docker curl; do
-  command -v "$tool" >/dev/null || { echo "missing required tool: $tool"; exit 2; }
+  command -v "$tool" >/dev/null || {
+    echo "missing required tool: $tool"
+    exit 2
+  }
 done
 
-section() { echo; echo "== $* =="; }
+section() {
+  echo
+  echo "== $* =="
+}
 
 check() {
-  local name="$1"; shift
+  local name="$1"
+  shift
   local out
   if out=$("$@" 2>&1); then
-    echo "PASS  $name"; PASS=$((PASS + 1))
+    echo "PASS  $name"
+    PASS=$((PASS + 1))
   else
-    echo "FAIL  $name"; FAIL=$((FAIL + 1))
+    echo "FAIL  $name"
+    FAIL=$((FAIL + 1))
     echo "$out" | tail -5 | sed 's/^/        /'
   fi
 }
@@ -72,23 +83,30 @@ status() {
 }
 
 # ----------------------------------------------------------------- tests ----
-t_nodes_ready()  { kubectl wait --for=condition=Ready node --all --timeout=30s; }
-t_single_node()  { [ "$(kubectl get nodes --no-headers | wc -l)" -eq 1 ] || { echo "multi-node cluster: the RWO video-storage PVC cannot be shared across nodes"; return 1; }; }
-t_default_sc()   { kubectl get sc -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' | grep -qx true; }
-t_kube_system()  { kubectl -n kube-system wait --for=condition=Ready pod --all --timeout=60s; }
+t_nodes_ready() { kubectl wait --for=condition=Ready node --all --timeout=30s; }
+t_single_node() { [ "$(kubectl get nodes --no-headers | wc -l)" -eq 1 ] || {
+  echo "multi-node cluster: the RWO video-storage PVC cannot be shared across nodes"
+  return 1
+}; }
+t_default_sc() { kubectl get sc -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' | grep -qx true; }
+t_kube_system() { kubectl -n kube-system wait --for=condition=Ready pod --all --timeout=60s; }
 t_ingress_ctrl() { kubectl -n ingress-nginx wait --for=condition=Ready pod -l app.kubernetes.io/component=controller --timeout=60s; }
-t_rollout()      { kubectl -n "$NS" rollout status "deploy/$1" --timeout=60s; }
-t_pvc_bound()    { [ "$(kubectl -n "$NS" get pvc "$1" -o jsonpath='{.status.phase}')" = Bound ]; }
+t_rollout() { kubectl -n "$NS" rollout status "deploy/$1" --timeout=60s; }
+t_pvc_bound() { [ "$(kubectl -n "$NS" get pvc "$1" -o jsonpath='{.status.phase}')" = Bound ]; }
 
 t_no_restarts() {
   local n
   n=$(kubectl -n "$NS" get pods -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{.restartCount}{"\n"}{end}{end}' | awk '{s+=$1} END{print s+0}')
-  [ "$n" -eq 0 ] || { echo "total container restarts: $n"; kubectl -n "$NS" get pods; return 1; }
+  [ "$n" -eq 0 ] || {
+    echo "total container restarts: $n"
+    kubectl -n "$NS" get pods
+    return 1
+  }
 }
 
-t_pg_ready()  { kubectl -n "$NS" exec deploy/postgres -- sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; }
-t_pg_query()  { kubectl -n "$NS" exec deploy/postgres -- sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select 1"' | grep -qx 1; }
-t_redis()     { kubectl -n "$NS" exec deploy/redis -- redis-cli ping | grep -qx PONG; }
+t_pg_ready() { kubectl -n "$NS" exec deploy/postgres -- sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; }
+t_pg_query() { kubectl -n "$NS" exec deploy/postgres -- sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select 1"' | grep -qx 1; }
+t_redis() { kubectl -n "$NS" exec deploy/redis -- redis-cli ping | grep -qx PONG; }
 
 # DNS + TCP from inside the cluster network, same path the app pods use.
 t_in_cluster_net() {
@@ -104,7 +122,8 @@ t_http_eventually() {
     curl -fsS --max-time 3 "$BASE_URL$1" >/dev/null 2>&1 && return 0
     sleep 2
   done
-  echo "$1 never returned 2xx within 60s"; return 1
+  echo "$1 never returned 2xx within 60s"
+  return 1
 }
 
 # Write from one pod, read from another, both mounting video-storage.
@@ -115,18 +134,18 @@ t_storage_share() {
     kubectl -n "$NS" run "$1" --rm -i --restart=Never --image=busybox:1.36 \
       --overrides='{"spec":{"containers":[{"name":"'"$1"'","image":"busybox:1.36","imagePullPolicy":"IfNotPresent","command":["sh","-c","'"$2"'"],"volumeMounts":[{"name":"v","mountPath":"/data/videos"}]}],"volumes":[{"name":"v","persistentVolumeClaim":{"claimName":"video-storage"}}]}}'
   }
-  run_pod storage-writer "echo $marker > /data/videos/.healthcheck" \
-    && run_pod storage-reader "grep -qx $marker /data/videos/.healthcheck && rm /data/videos/.healthcheck"
+  run_pod storage-writer "echo $marker > /data/videos/.healthcheck" &&
+    run_pod storage-reader "grep -qx $marker /data/videos/.healthcheck && rm /data/videos/.healthcheck"
 }
 
 # ----------------------------------------------------------------- smoke ----
 smoke() {
   section "Cluster"
-  check "all nodes Ready"                    t_nodes_ready
+  check "all nodes Ready" t_nodes_ready
   check "single node (needed by shared PVC)" t_single_node
-  check "default StorageClass present"       t_default_sc
-  check "kube-system pods Ready"             t_kube_system
-  check "ingress-nginx controller Ready"     t_ingress_ctrl
+  check "default StorageClass present" t_default_sc
+  check "kube-system pods Ready" t_kube_system
+  check "ingress-nginx controller Ready" t_ingress_ctrl
 
   section "Workloads"
   for d in postgres redis api worker; do check "deployment/$d rolled out" t_rollout "$d"; done
@@ -134,17 +153,17 @@ smoke() {
   check "no container restarts" t_no_restarts
 
   section "Dependencies"
-  check "postgres accepts connections"       t_pg_ready
-  check "postgres executes a query"          t_pg_query
-  check "redis answers PING"                 t_redis
+  check "postgres accepts connections" t_pg_ready
+  check "postgres executes a query" t_pg_query
+  check "redis answers PING" t_redis
   check "in-cluster DNS + TCP (pg/redis/api)" t_in_cluster_net
 
   section "HTTP via ingress ($BASE_URL)"
-  check "GET /health/live"                       t_http /health/live
-  check "GET /health/ready"                        t_http /health/ready
+  check "GET $LIVE_PATH" t_http "$LIVE_PATH"
+  check "GET $READY_PATH" t_http "$READY_PATH"
 
   section "Shared storage"
-  check "write in pod A, read in pod B"      t_storage_share
+  check "write in pod A, read in pod B" t_storage_share
 }
 
 # ----------------------------------------------------------------- chaos ----
@@ -154,7 +173,8 @@ wait_ready() { # app label
       -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -q True && return 0
     sleep 2
   done
-  echo "app=$1 did not become Ready within 90s"; return 1
+  echo "app=$1 did not become Ready within 90s"
+  return 1
 }
 
 t_kill_pod() { kubectl -n "$NS" delete pod -l "app=$1" --wait=true && wait_ready "$1"; }
@@ -166,29 +186,36 @@ t_pg_persist() {
   wait_ready postgres || return 1
   kubectl -n "$NS" exec deploy/postgres -- sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"select count(*) from _chaos where m='$m'\"" | grep -qx 1
   rc=$?
-  kubectl -n "$NS" exec deploy/postgres -- sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "drop table if exists _chaos"' >/dev/null 2>&1
+  kubectl -n "$NS" exec deploy/postgres -- sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"drop table if exists _chaos\"" >/dev/null 2>&1
   return $rc
 }
 
 chaos() {
   section "Chaos (destructive)"
-  check "api pod killed -> replacement Ready"      t_kill_pod api
-  check "api serves /readyz again"                 t_http_eventually /readyz
-  check "worker pod killed -> replacement Ready"   t_kill_pod worker
-  check "postgres data survives pod deletion"      t_pg_persist
-  check "api recovers /readyz after DB restart"    t_http_eventually /readyz
+  check "api pod killed -> replacement Ready" t_kill_pod api
+  check "api serves $READY_PATH again" t_http_eventually "$READY_PATH"
+  check "worker pod killed -> replacement Ready" t_kill_pod worker
+  check "postgres data survives pod deletion" t_pg_persist
+  check "api recovers $READY_PATH after DB restart" t_http_eventually "$READY_PATH"
 }
 
 # ------------------------------------------------------------------ main ----
 case "${1:-smoke}" in
-  status) status ;;
-  smoke)  smoke ;;
-  chaos)  chaos ;;
-  all)    smoke; chaos ;;
-  *) echo "usage: $0 [status|smoke|chaos|all]"; exit 2 ;;
+status) status ;;
+smoke) smoke ;;
+chaos) chaos ;;
+all)
+  smoke
+  chaos
+  ;;
+*)
+  echo "usage: $0 [status|smoke|chaos|all]"
+  exit 2
+  ;;
 esac
 
 if [ $((PASS + FAIL)) -gt 0 ]; then
-  echo; echo "Passed: $PASS   Failed: $FAIL"
+  echo
+  echo "Passed: $PASS   Failed: $FAIL"
   [ "$FAIL" -eq 0 ]
 fi
