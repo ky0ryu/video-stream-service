@@ -50,7 +50,7 @@ func main() {
 	vtr := validator.NewVideoValidator(cfg.SizeLimitMB)
 	service := service.NewVideoService(store, repo, vtr, asynqClient, cfg.SizeLimitMB)
 	handler := handler.NewVideoHandler(service)
-	srvr := api.NewServer(handler, cfg.Port)
+	srvr := api.NewServer(handler, cfg.Port, cfg.SizeLimitMB)
 
 	// the server is run asynchronously to allow graceful error handling
 	go func() {

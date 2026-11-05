@@ -20,8 +20,17 @@ type Server struct {
 	httpSrvr *http.Server
 }
 
-func NewServer(hdlr APIHandler, port string) *Server {
+func sizeLimit(maxBytes int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+		c.Next()
+	}
+}
+
+func NewServer(hdlr APIHandler, port string, sizeLimitMB int64) *Server {
 	engine := gin.New()
+	engine.MaxMultipartMemory = 8 << 20 // limit memory size to 8MB
+	engine.Use(sizeLimit(sizeLimitMB << 20))
 	engine.Use(gin.Recovery())
 	engine.Use(gin.Logger())
 	engine.Use(handler.ErrorHandler())
