@@ -1,28 +1,26 @@
 package validator
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/ky0ryu/video-upload-service/internal/domain"
 )
 
-var allowedVidExt = map[string]bool{
-	".mp4": true,
-	".mov": true,
-	".mkv": true,
-	".avi": true,
+type formatDef struct {
+	ext   string
+	mimes []string
 }
 
-var allowedVideos = map[string]bool{
-	"video/mp4": true,
-	"video/mov": true,
-	"video/mkv": true,
-	"video/avi": true,
+var formats = []formatDef{
+	{".mp4", []string{"video/mp4"}},
+	{".mov", []string{"video/quicktime"}},
+	{".mkv", []string{"video/matroska", "video/x-matroska"}},
+	{".avi", []string{"video/x-msvideo", "video/avi"}},
 }
 
 type VideoValidator struct {
@@ -35,13 +33,23 @@ func NewVideoValidator(sizeLimitMB int64) *VideoValidator {
 	}
 }
 
+func formatByExt(ext string) (formatDef, bool) {
+	idx := slices.IndexFunc(formats, func(f formatDef) bool { return f.ext == ext })
+	if idx < 0 {
+		return formatDef{}, false
+	}
+	return formats[idx], true
+}
+
 func (vv *VideoValidator) Validate(vf *domain.VideoFile) error {
 	if err := checkFileSize(vf.Size, vv.sizeLimitMB); err != nil {
 		return err
 	}
 
-	if err := checkFileFormat(vf.OriginalFilename); err != nil {
-		return err
+	ext := strings.ToLower(filepath.Ext(vf.OriginalFilename))
+	f, ok := formatByExt(ext)
+	if !ok {
+		return fmt.Errorf("unsupported format: %s", filepath.Ext(vf.OriginalFilename))
 	}
 
 	mtype, err := mimetype.DetectReader(vf.File)
@@ -50,16 +58,20 @@ func (vv *VideoValidator) Validate(vf *domain.VideoFile) error {
 	}
 
 	// make sure that vf.File can be asserted to ReadSeeker
-	if seeker, ok := vf.File.(io.ReadSeeker); ok {
-		// reset the seeker at the beginning of the stream
-		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			return fmt.Errorf("failed to rollback file reader: %w", err)
-		}
+	seeker, ok := vf.File.(io.ReadSeeker)
+	if !ok {
+		return fmt.Errorf("validator requires an io.ReadSeeker")
+	}
+	// reset the seeker at the beginning of the stream
+	if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("failed to rollback file reader: %w", err)
 	}
 
-	if !allowedVideos[mtype.String()] {
-		return errors.New("unsupported video format")
+	// confirm that the read container matches the filename
+	if !slices.ContainsFunc(f.mimes, mtype.Is) {
+		return fmt.Errorf("unsupported video format: %s sent as %s", mtype, f.ext)
 	}
+
 	return nil
 }
 
@@ -69,14 +81,5 @@ func checkFileSize(size int64, sizeLimitMB int64) error {
 	if size > maxSizeB {
 		return fmt.Errorf("file exceeds %d byte limit", maxSizeB)
 	}
-	return nil
-}
-
-func checkFileFormat(filaName string) error {
-	ext := strings.ToLower(filepath.Ext(filaName))
-	if !allowedVidExt[ext] {
-		return fmt.Errorf("unsupported format: %s", ext)
-	}
-
 	return nil
 }
