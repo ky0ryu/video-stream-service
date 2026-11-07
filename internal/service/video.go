@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"path/filepath"
 
@@ -25,13 +26,6 @@ type VideoService struct {
 	sizeLimitMB int64
 }
 
-var allowedVidExt = map[string]bool{
-	".mp4": true,
-	".mov": true,
-	".mkv": true,
-	".avi": true,
-}
-
 func NewVideoService(s storage.Storage, r domain.VideoRepository, vv domain.VideoValidator, ac *asynq.Client, sl int64) *VideoService {
 	return &VideoService{store: s, repo: r, validator: vv, asyncClient: ac, sizeLimitMB: sl}
 }
@@ -45,7 +39,7 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 
 	// generate unique video ID
 	vf.ID = uuid.New().String()
-	ext := filepath.Ext(vf.OriginalFilename)
+	ext := strings.ToLower(filepath.Ext(vf.OriginalFilename))
 	vf.StoredFilename = vf.ID + ext
 
 	// save the file to the specified storage
