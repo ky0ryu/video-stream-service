@@ -30,11 +30,11 @@ func NewVideoService(s storage.Storage, r domain.VideoRepository, vv domain.Vide
 	return &VideoService{store: s, repo: r, validator: vv, asyncClient: ac, sizeLimitMB: sl}
 }
 
-func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) error {
+func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) (string, error) {
 
 	if err := svc.validator.Validate(&vf); err != nil {
 		log.Printf("video validation failed: %v", err)
-		return apierror.UnsupportedMediaType(err)
+		return "", apierror.UnsupportedMediaType(err)
 	}
 
 	// generate unique video ID
@@ -45,7 +45,7 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 	// save the file to the specified storage
 	if err := svc.store.Save(ctx, vf.ID, vf.StoredFilename, vf.File, vf.Size); err != nil {
 		log.Printf("failed to save video file: %v", err)
-		return apierror.InternalServerError(err)
+		return "", apierror.InternalServerError(err)
 	}
 
 	// save the video data to db
@@ -53,29 +53,29 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) e
 		// Delete the file incase the DB transaction fails
 		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
 			log.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
-			return apierror.InternalServerError(delErr)
+			return "", apierror.InternalServerError(delErr)
 		}
 		log.Printf("failed to create video data in DB: %v", err)
-		return apierror.InternalServerError(err)
+		return "", apierror.InternalServerError(err)
 	}
 
 	if err := svc.createTranscodeTask(vf.Video); err != nil {
 		// Delete the file when transcode enqueue fails
 		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
 			log.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
-			return apierror.InternalServerError(delErr)
+			return "", apierror.InternalServerError(delErr)
 		}
 
 		if updErr := svc.repo.UpdateVideoState(ctx, vf.ID, domain.VideoDeleted); updErr != nil {
 			log.Printf("failed to update state: %v", updErr)
-			return apierror.InternalServerError(updErr)
+			return "", apierror.InternalServerError(updErr)
 		}
 
 		log.Printf("failed to send transcode video task: %v", err)
-		return apierror.InternalServerError(err)
+		return "", apierror.InternalServerError(err)
 	}
 
-	return nil
+	return vf.ID, nil
 }
 
 func (svc *VideoService) createTranscodeTask(video domain.Video) error {
