@@ -24,6 +24,14 @@ func ErrorHandler() gin.HandlerFunc {
 
 		err := c.Errors.Last().Err
 
+		var maxBytes *http.MaxBytesError
+		if errors.As(err, &maxBytes) {
+			pe := response.PayloadTooLarge(err)
+			log.Printf("request rejected: body exceeds size limit")
+			c.AbortWithStatusJSON(pe.StatusCode, gin.H{"error": pe.Message})
+			return
+		}
+
 		var apiErr *response.APIError
 		if errors.As(err, &apiErr) {
 			if apiErr.Err != nil {

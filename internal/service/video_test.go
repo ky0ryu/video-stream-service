@@ -74,7 +74,7 @@ func TestVideoService_UploadVideo_RollbackCompensation(t *testing.T) {
 			Size: 100,
 		}
 
-		err := svc.UploadVideo(context.Background(), vf)
+		_, _, err := svc.UploadVideo(context.Background(), vf)
 
 		if err == nil {
 			t.Fatal("expected UploadVideo to fail, but it return nil")

@@ -2,7 +2,6 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +13,13 @@ import (
 type VideoHandler struct {
 	service *service.VideoService
 }
+
+type uploadResponse struct {
+	ID    string `json:"id"`
+	State string `json:"state"`
+}
+
+const videosRoute = "/videos"
 
 func NewVideoHandler(s *service.VideoService) *VideoHandler {
 	return &VideoHandler{service: s}
@@ -52,16 +58,15 @@ func (v *VideoHandler) Upload(ctx *gin.Context) {
 		Size: size,
 	}
 
-	videoID, err := v.service.UploadVideo(ctx.Request.Context(), videoFile)
+	id, st, err := v.service.UploadVideo(ctx.Request.Context(), videoFile)
 	if err != nil {
-		log.Printf("UploadVideo failed: %v", err)
 		ctx.Error(err)
 		return
 	}
 
-	ctx.Header("Location", "/video/"+videoID)
-	ctx.JSON(http.StatusCreated, gin.H{
-		"videoID": videoID,
-		"status":  "created",
+	ctx.Header("Location", videosRoute+"/"+id)
+	ctx.JSON(http.StatusCreated, uploadResponse{
+		ID:    id,
+		State: st,
 	})
 }
