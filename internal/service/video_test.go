@@ -50,11 +50,11 @@ func (m *mockRepository) UpdateVideoState(ctx context.Context, id string, state 
 // Validator mock
 type mockValidator struct {
 	validateErr error
+	sizeErr     error
 }
 
-func (m *mockValidator) Validate(vf *domain.VideoFile) error {
-	return m.validateErr
-}
+func (m *mockValidator) Validate(vf *domain.VideoFile) error { return m.validateErr }
+func (m *mockValidator) CheckFileSize(size int64) error      { return m.sizeErr }
 
 func TestVideoService_UploadVideo_RollbackCompensation(t *testing.T) {
 	t.Run("DB Create fails triggers file deletion", func(t *testing.T) {

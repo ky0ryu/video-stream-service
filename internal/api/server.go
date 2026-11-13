@@ -20,17 +20,25 @@ type Server struct {
 	httpSrvr *http.Server
 }
 
-func sizeLimit(maxBytes int64) gin.HandlerFunc {
+func sizeLimit(maxBody int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+		if c.Request.ContentLength > maxBody {
+			c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge,
+				gin.H{"error": "upload exceeds the configured size limit"})
+			return
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBody)
 		c.Next()
 	}
 }
 
 func NewServer(hdlr APIHandler, port string, sizeLimitMB int64) *Server {
+	// estimated file boundary, headers, text fields, etc.
+	const multipartSizeOverhead = 1 << 20
+
 	engine := gin.New()
 	engine.MaxMultipartMemory = 8 << 20 // limit memory size to 8MB
-	engine.Use(sizeLimit(sizeLimitMB << 20))
+	engine.Use(sizeLimit(sizeLimitMB<<20 + multipartSizeOverhead))
 	engine.Use(gin.Recovery())
 	engine.Use(gin.Logger())
 	engine.Use(handler.ErrorHandler())

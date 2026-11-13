@@ -37,6 +37,11 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) (
 		return "", string(domain.VideoFailed), apierror.UnsupportedMediaType(err)
 	}
 
+	if err := svc.validator.CheckFileSize(vf.Size); err != nil {
+		log.Printf("size went over the limit: %v", err)
+		return "", string(domain.VideoFailed), apierror.PayloadTooLarge(err)
+	}
+
 	// generate unique video ID
 	vf.ID = uuid.New().String()
 	vf.State = domain.VideoPending

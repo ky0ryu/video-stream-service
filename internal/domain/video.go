@@ -40,4 +40,5 @@ type VideoRepository interface {
 
 type VideoValidator interface {
 	Validate(vf *VideoFile) error
+	CheckFileSize(size int64) error
 }

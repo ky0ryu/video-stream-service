@@ -42,10 +42,6 @@ func formatByExt(ext string) (formatDef, bool) {
 }
 
 func (vv *VideoValidator) Validate(vf *domain.VideoFile) error {
-	if err := checkFileSize(vf.Size, vv.sizeLimitMB); err != nil {
-		return err
-	}
-
 	ext := strings.ToLower(filepath.Ext(vf.OriginalFilename))
 	f, ok := formatByExt(ext)
 	if !ok {
@@ -75,11 +71,11 @@ func (vv *VideoValidator) Validate(vf *domain.VideoFile) error {
 	return nil
 }
 
-func checkFileSize(size int64, sizeLimitMB int64) error {
-	maxSizeB := sizeLimitMB * 1024 * 1024
+func (vv *VideoValidator) CheckFileSize(size int64) error {
+	maxSizeB := vv.sizeLimitMB * 1024 * 1024
 
 	if size > maxSizeB {
-		return fmt.Errorf("file exceeds %d byte limit", maxSizeB)
+		return fmt.Errorf("file size is %d bytes, limit is %d", size, maxSizeB)
 	}
 	return nil
 }
