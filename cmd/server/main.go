@@ -52,18 +52,21 @@ func main() {
 	handler := handler.NewVideoHandler(service)
 	srvr := api.NewServer(handler, cfg.Port, cfg.SizeLimitMB)
 
-	// the server is run asynchronously to allow graceful error handling
+	runErr := make(chan error, 1)
 	go func() {
 		if err := srvr.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server failed run: %v", err)
+			runErr <- err
 		}
 	}()
 
-	// setup a channel that'll wait for an OS interrupt
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	<-quit // blocking call
-	// once a signal is received, function will proceed to shutdown the server
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	select {
+	case sig := <-quit:
+		log.Printf("received signal: %s", sig)
+	case err := <-runErr:
+		log.Printf("server failed run: %v", err)
+	}
 
 	log.Println("Shutting down server in 15 seconds (or less)...")
 	closeCtx, closeCancel := context.WithTimeout(context.Background(), 15*time.Second)

@@ -48,18 +48,17 @@ func NewServer(hdlr APIHandler, port string, sizeLimitMB int64) *Server {
 	return &Server{
 		engine: engine,
 		port:   port,
+		httpSrvr: &http.Server{
+			Addr:         ":" + port,
+			Handler:      engine,
+			ReadTimeout:  10 * time.Minute,
+			WriteTimeout: 10 * time.Minute,
+			IdleTimeout:  120 * time.Second,
+		},
 	}
 }
 
 func (srvr *Server) Run() error {
-	srvr.httpSrvr = &http.Server{
-		Addr:         ":" + srvr.port,
-		Handler:      srvr.engine,
-		ReadTimeout:  10 * time.Minute,
-		WriteTimeout: 10 * time.Minute,
-		IdleTimeout:  120 * time.Second,
-	}
-
 	return srvr.httpSrvr.ListenAndServe()
 }
 
