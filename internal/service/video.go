@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"path/filepath"
 
@@ -56,8 +57,12 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) (
 
 	// save the video data to db
 	if err := svc.repo.CreateVideo(ctx, &vf.Video); err != nil {
+		// ensure that file cleanup survives caller cancellation
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+
 		// Delete the file incase the DB transaction fails
-		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
+		if delErr := svc.store.Delete(cleanupCtx, vf.ID, vf.StoredFilename); delErr != nil {
 			log.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
 			return "", "", apierror.InternalServerError(delErr)
 		}
@@ -66,13 +71,17 @@ func (svc *VideoService) UploadVideo(ctx context.Context, vf domain.VideoFile) (
 	}
 
 	if err := svc.createTranscodeTask(vf.Video); err != nil {
+		// ensure that file cleanup survives caller cancellation
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+
 		// Delete the file when transcode enqueue fails
-		if delErr := svc.store.Delete(ctx, vf.ID, vf.StoredFilename); delErr != nil {
+		if delErr := svc.store.Delete(cleanupCtx, vf.ID, vf.StoredFilename); delErr != nil {
 			log.Printf("failed to delete uploaded file: %s: %v", vf.StoredFilename, delErr)
 			return "", "", apierror.InternalServerError(delErr)
 		}
 
-		if updErr := svc.repo.UpdateVideoState(ctx, vf.ID, domain.VideoDeleted); updErr != nil {
+		if updErr := svc.repo.UpdateVideoState(cleanupCtx, vf.ID, domain.VideoDeleted); updErr != nil {
 			log.Printf("failed to update state: %v", updErr)
 			return "", "", apierror.InternalServerError(updErr)
 		}
