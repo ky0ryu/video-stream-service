@@ -77,6 +77,9 @@ func TestVideoValidator_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			vv := NewVideoValidator(tt.sizeLimitMB)
 			err := vv.Validate(&tt.videoFile)
+			if err == nil {
+				err = vv.CheckFileSize(tt.videoFile.Size)
+			}
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error %v, wantErr %v", err, tt.wantErr)
