@@ -34,6 +34,7 @@ func (vt *VideoTranscoder) TranscodeVideo(ctx context.Context, t *asynq.Task) er
 
 	fmt.Printf("transcode video: %v : %v", p.VideoID, path)
 	cmd := exec.CommandContext(ctx, "ffmpeg",
+		"-nostdin", "-y", "-loglevel", "error",
 		"-i", p.SaveDir,
 		"-threads", "1",
 		"-vf", "scale=-2:720",
