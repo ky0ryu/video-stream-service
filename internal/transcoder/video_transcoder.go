@@ -58,7 +58,7 @@ func (vt *VideoTranscoder) TranscodeVideo(ctx context.Context, t *asynq.Task) er
 
 	// update video status to "ready"
 	if updErr := vt.Repo.UpdateVideoState(ctx, p.VideoID, domain.VideoReady); updErr != nil {
-		fmt.Printf("failed to update state: %v", updErr)
+		return fmt.Errorf("transcode successful but failed to mark ready: %w", updErr)
 	}
 	return nil
 }
