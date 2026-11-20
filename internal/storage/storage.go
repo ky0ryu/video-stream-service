@@ -59,7 +59,6 @@ func (s *LocalStorage) Save(ctx context.Context, id string, filename string, rdr
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer f.Close()
 
 	// wrap the io.Reader with a context aware reader to handle context cancellation
 	ctxRdr := &contextAwareReader{
@@ -68,7 +67,13 @@ func (s *LocalStorage) Save(ctx context.Context, id string, filename string, rdr
 	}
 	// Stream the data to the file
 	if _, err := io.Copy(f, ctxRdr); err != nil {
+		f.Close()
+		removePartial(filePath)
 		return fmt.Errorf("write file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		removePartial(filePath)
+		return fmt.Errorf("close file: %w", err)
 	}
 	return nil
 }
@@ -88,4 +93,11 @@ func (s *LocalStorage) Delete(ctx context.Context, folderName string, fileName s
 
 func (s *LocalStorage) GetFullFilePath(folderName string, fileName string) string {
 	return filepath.Join(s.baseDir, filepath.Clean("/"+folderName), filepath.Clean("/"+fileName))
+}
+
+// deletes the file truncated by a failed write
+func removePartial(filePath string) {
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		log.Printf("unable to remove partial uploaded file: %s: %v", filePath, err)
+	}
 }
