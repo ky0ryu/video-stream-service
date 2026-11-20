@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/ky0ryu/video-upload-service/internal/config"
@@ -16,6 +18,11 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	exitCode := 0
 	cfg := config.Load()
 	ctx := context.Background()
 	fmt.Printf("Storage path: %v\n", cfg.LocalStorage)
@@ -23,7 +30,9 @@ func main() {
 	// DB initialization
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", err)
+		log.Printf("Unable to create connection pool: %v\n", err)
+		exitCode = 1
+		return exitCode
 	}
 	defer func() {
 		log.Println("Closing DB connection pool...")
@@ -39,7 +48,9 @@ func main() {
 		var err error
 		redisOpt, err = asynq.ParseRedisURI(cfg.RedisURL)
 		if err != nil {
-			log.Fatalf("Unable to parse redis URL: %v\n", err)
+			log.Printf("Unable to parse redis URL: %v\n", err)
+			exitCode = 1
+			return exitCode
 		}
 	} else {
 		redisOpt = asynq.RedisClientOpt{Addr: cfg.RedisURL}
@@ -48,8 +59,9 @@ func main() {
 	asSvc := asynq.NewServer(
 		redisOpt,
 		asynq.Config{
-			Concurrency: cfg.AsynqConcurrency,
-			Queues:      map[string]int{"transcode": 1},
+			Concurrency:     cfg.AsynqConcurrency,
+			Queues:          map[string]int{"transcode": 1},
+			ShutdownTimeout: 10 * time.Minute,
 		},
 	)
 
@@ -59,8 +71,10 @@ func main() {
 	if err := asSvc.Run(mux); err != nil {
 		log.Printf("worker exited: %v", err)
 		// trigger the deferred funcs
-		return
+		exitCode = 1
+		return exitCode
 	}
 
 	fmt.Println("Worker successfully exit.")
+	return exitCode
 }

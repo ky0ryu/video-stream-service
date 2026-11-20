@@ -23,13 +23,21 @@ import (
 )
 
 func main() {
+	// make sure that defers from main processes run
+	os.Exit(run())
+}
+
+func run() int {
+	exitCode := 0
 	cfg := config.Load()
 	ctx := context.Background()
 
 	// DB initialization
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", err)
+		log.Printf("Unable to create connection pool: %v\n", err)
+		exitCode = 1
+		return exitCode
 	}
 	defer func() {
 		log.Println("Closing DB connection pool...")
@@ -44,6 +52,12 @@ func main() {
 		log.Println("Closing Asynq redis client...")
 		asynqClient.Close()
 	}()
+
+	if err := os.MkdirAll(cfg.LocalStorage, 0755); err != nil {
+		log.Printf("failed to create dir: %v %v", cfg.LocalStorage, err)
+		exitCode = 1
+		return exitCode
+	}
 
 	// server initialization
 	store := storage.NewLocalStorage(cfg.LocalStorage)
@@ -66,6 +80,7 @@ func main() {
 		log.Printf("received signal: %s", sig)
 	case err := <-runErr:
 		log.Printf("server failed run: %v", err)
+		exitCode = 1
 	}
 
 	log.Println("Shutting down server in 15 seconds (or less)...")
@@ -74,8 +89,10 @@ func main() {
 
 	// signals the server to wrap up transactions before the 15s timeout is reached
 	if err := srvr.Shutdown(closeCtx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.Printf("Server forced to shutdown: %v", err)
+		exitCode = 1
 	}
 
 	log.Println("Server closed.")
+	return exitCode
 }
