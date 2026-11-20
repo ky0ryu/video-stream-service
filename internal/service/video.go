@@ -101,7 +101,7 @@ func (svc *VideoService) createTranscodeTask(video domain.Video) error {
 	})
 	t := asynq.NewTask(task.TypeTranscodeVideoType, payload)
 
-	_, err := svc.asyncClient.Enqueue(t, asynq.MaxRetry(3), asynq.Queue("transcode"))
+	_, err := svc.asyncClient.Enqueue(t, asynq.Queue("transcode"), asynq.MaxRetry(3), asynq.Timeout(90*time.Minute))
 	if err != nil {
 		return fmt.Errorf("failed to Enqueue: %w", err)
 	}

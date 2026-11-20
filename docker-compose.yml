@@ -49,6 +49,7 @@ services:
     volumes:
       - video-storage:/data/videos
     restart: unless-stopped
+    stop_grace_period: 20s
 
   worker:
     build:
@@ -67,6 +68,7 @@ services:
     volumes:
       - video-storage:/data/videos
     restart: unless-stopped
+    stop_grace_period: 12m
 
 volumes:
   video-storage:
