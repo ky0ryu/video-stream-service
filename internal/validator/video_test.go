@@ -2,6 +2,7 @@ package validator
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -98,5 +99,16 @@ func TestVideoValidator_Validate(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCheckFileSize(t *testing.T) { // add here, line 100+
+	vv := NewVideoValidator(1)
+
+	if err := vv.CheckFileSize(1 << 20); err != nil {
+		t.Errorf("at the limit must pass, got %v", err)
+	}
+	if err := vv.CheckFileSize(1<<20 + 1); !errors.Is(err, ErrTooLarge) {
+		t.Errorf("want ErrTooLarge, got %v", err)
 	}
 }

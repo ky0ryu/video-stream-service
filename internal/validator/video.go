@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -22,6 +23,8 @@ var formats = []formatDef{
 	{".mkv", []string{"video/matroska", "video/x-matroska"}},
 	{".avi", []string{"video/x-msvideo", "video/avi"}},
 }
+
+var ErrTooLarge = errors.New("video exceeds file limit")
 
 type VideoValidator struct {
 	sizeLimitMB int64
@@ -75,7 +78,7 @@ func (vv *VideoValidator) CheckFileSize(size int64) error {
 	maxSizeB := vv.sizeLimitMB * 1024 * 1024
 
 	if size > maxSizeB {
-		return fmt.Errorf("file size is %d bytes, limit is %d", size, maxSizeB)
+		return fmt.Errorf("%w: file size is %d bytes, limit is %d", ErrTooLarge, size, maxSizeB)
 	}
 	return nil
 }
