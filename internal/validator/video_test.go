@@ -102,7 +102,7 @@ func TestVideoValidator_Validate(t *testing.T) {
 	}
 }
 
-func TestCheckFileSize(t *testing.T) { // add here, line 100+
+func TestCheckFileSize(t *testing.T) {
 	vv := NewVideoValidator(1)
 
 	if err := vv.CheckFileSize(1 << 20); err != nil {
