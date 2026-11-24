@@ -2,10 +2,12 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -15,16 +17,51 @@ type Config struct {
 	LocalStorage     string
 	Port             string
 	SizeLimitMB      int64
-	DatabaseURL      string
-	RedisURL         string
 	AsynqConcurrency int
+
+	// Postgres settings
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBSSLMode  string
+
+	// Redis settings
+	RedisAddr     string
+	RedisPassword string
+	RedisDB       int
 }
 
-func Load() *Config {
+// Load reads configuration from the process environment, falling back to a
+// local .env file for development. It fails when a required setting is missing
+// rather than starting up half configured.
+func Load() (*Config, error) {
 	err := godotenv.Load()
 
 	if err != nil {
 		log.Print("Unable to load .env file")
+	}
+
+	var missing []string
+	for _, name := range []string{"DB_HOST", "DB_USER", "DB_NAME", "DB_SSLMODE", "REDIS_ADDR"} {
+		if os.Getenv(name) == "" {
+			missing = append(missing, name)
+		}
+	}
+
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("missing required environment variables: %s (see .env.example)",
+			strings.Join(missing, ", "))
+	}
+
+	// An empty password is allowed for local environment testing
+	if os.Getenv("DB_PASSWORD") == "" {
+		log.Print("DB_PASSWORD is empty: connecting to Postgres without a password")
+	}
+
+	if os.Getenv("REDIS_PASSWORD") == "" {
+		log.Print("REDIS_PASSWORD is empty: connecting to Redis without a password")
 	}
 
 	sizeLimitMB, err := strconv.ParseInt(getEnv("SIZE_LIMIT_MB", "512"), 10, 64)
@@ -46,15 +83,30 @@ func Load() *Config {
 		asynqConcurrency = 2
 	}
 
+	redisDB := 0
+	if v := os.Getenv("REDIS_DB"); v != "" {
+		redisDB, err = strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid REDIS_DB %q: %w", v, err)
+		}
+	}
+
 	return &Config{
 		Env:              getEnv("APP_DEV", "dev"),
 		LocalStorage:     storageDir,
 		Port:             getEnv("PORT", "3000"),
 		SizeLimitMB:      sizeLimitMB,
-		DatabaseURL:      getEnv("DATABASE_URL", ""),
-		RedisURL:         getEnv("REDIS_URL", "redis:6379"),
 		AsynqConcurrency: asynqConcurrency,
-	}
+		DBHost:           os.Getenv("DB_HOST"),
+		DBPort:           getEnv("DB_PORT", "5432"),
+		DBUser:           os.Getenv("DB_USER"),
+		DBPassword:       os.Getenv("DB_PASSWORD"),
+		DBName:           os.Getenv("DB_NAME"),
+		DBSSLMode:        os.Getenv("DB_SSLMODE"),
+		RedisAddr:        os.Getenv("REDIS_ADDR"),
+		RedisPassword:    os.Getenv("REDIS_PASSWORD"),
+		RedisDB:          redisDB,
+	}, nil
 }
 
 func getEnv(key, fallback string) string {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
@@ -23,12 +22,25 @@ func main() {
 
 func run() int {
 	exitCode := 0
-	cfg := config.Load()
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("Configuration error: %v\n", err)
+		return 1
+	}
+
 	ctx := context.Background()
 	fmt.Printf("Storage path: %v\n", cfg.LocalStorage)
 
 	// DB initialization
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	pool, err := db.NewPool(ctx, db.Config{
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		User:     cfg.DBUser,
+		Password: cfg.DBPassword,
+		DBName:   cfg.DBName,
+		SSLMode:  cfg.DBSSLMode,
+	})
 	if err != nil {
 		log.Printf("Unable to create connection pool: %v\n", err)
 		exitCode = 1
@@ -43,17 +55,10 @@ func run() int {
 	repo := repository.NewVideoRepository(queries)
 	tr := &transcoder.VideoTranscoder{Repo: repo}
 
-	var redisOpt asynq.RedisConnOpt
-	if strings.HasPrefix(cfg.RedisURL, "redis://") || strings.HasPrefix(cfg.RedisURL, "rediss://") {
-		var err error
-		redisOpt, err = asynq.ParseRedisURI(cfg.RedisURL)
-		if err != nil {
-			log.Printf("Unable to parse redis URL: %v\n", err)
-			exitCode = 1
-			return exitCode
-		}
-	} else {
-		redisOpt = asynq.RedisClientOpt{Addr: cfg.RedisURL}
+	redisOpt := asynq.RedisClientOpt{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
 	}
 
 	asSvc := asynq.NewServer(

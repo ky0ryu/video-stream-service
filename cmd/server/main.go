@@ -29,11 +29,24 @@ func main() {
 
 func run() int {
 	exitCode := 0
-	cfg := config.Load()
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("Configuration error: %v\n", err)
+		return 1
+	}
+
 	ctx := context.Background()
 
 	// DB initialization
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	pool, err := db.NewPool(ctx, db.Config{
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		User:     cfg.DBUser,
+		Password: cfg.DBPassword,
+		DBName:   cfg.DBName,
+		SSLMode:  cfg.DBSSLMode,
+	})
 	if err != nil {
 		log.Printf("Unable to create connection pool: %v\n", err)
 		exitCode = 1
@@ -47,7 +60,13 @@ func run() int {
 	queries := sqlc.New(pool)
 	repo := repository.NewVideoRepository(queries)
 
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisURL})
+	redisOpt := asynq.RedisClientOpt{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	}
+
+	asynqClient := asynq.NewClient(redisOpt)
 	defer func() {
 		log.Println("Closing Asynq redis client...")
 		asynqClient.Close()

@@ -1,3 +1,18 @@
+# Connection settings are passed as individual variables, never as a single
+# connection string. A secret glued into a URL has to be escaped on the way in
+# and parsed back out on the way use, and that is where passwords silently
+# break. One variable per setting, and the password never becomes part of a
+# string anything has to parse.
+x-app-env: &app-env
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USER: ${DB_USER:?set in .env}
+  DB_PASSWORD: ${DB_PASSWORD:?set in .env}
+  DB_NAME: ${DB_NAME:?set in .env}
+  DB_SSLMODE: disable
+  REDIS_ADDR: redis:6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?set in .env}
+
 services:
   postgres:
     image: postgres:17
@@ -5,14 +20,15 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
-      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-video_db}
+      # the image's own names, fed from the single set of values in .env
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set in .env}
+      POSTGRES_USER: ${DB_USER:?set in .env}
+      POSTGRES_DB: ${DB_NAME:?set in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d video_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -25,13 +41,13 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
+    environment:
+      # redis-cli reads REDISCLI_AUTH, so the healthcheck needs no -a flag and
+      # the password never appears on a command line.
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set in .env}
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "redis-cli --no-auth-warning -a '${REDIS_PASSWORD}' ping | grep -q PONG",
-        ]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -49,13 +65,10 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
-      - STORAGE_DIR=/data/videos
-      - PORT=8080
+      <<: *app-env
+      PORT: "8080"
     volumes:
       - video-storage:/data/videos
-      - postgres-data
     restart: unless-stopped
     stop_grace_period: 20s
 
@@ -69,10 +82,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgres://user:password@postgres:5432/video_db?sslmode=disable
-      - REDIS_URL=redis:6379
-      - STORAGE_DIR=/data/videos
-      - ASYNQ_CONCURRENCY=2
+      <<: *app-env
+      ASYNQ_CONCURRENCY: "2"
     volumes:
       - video-storage:/data/videos
     restart: unless-stopped
@@ -81,3 +92,4 @@ services:
 volumes:
   video-storage:
   redis-data:
+  postgres-data:
